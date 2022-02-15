@@ -1,0 +1,26 @@
+#### this file contains codes used to compute the precipitation sensitivity of glacier runoff as described in the article: "A weak precipitation sensitivity of glacier runoff", Argha Banerjee, Geophysical Research Letters, 2022 (accepted). The details of the variables and model are given in the "Methods" section of the paper. To run the code for any other glacier or climate regime, the input files (item 2 and 3 in the file list below) have to be changed 
+
+####files in this folder
+1. sensitivity_cs.2.awk  [an awk script that computes runoff and its component for the steady glacier and for the perturbed] 
+2. z_a_cs.txt [cols: elevation(m), area (sq km); hypsometry of Chhota Shigri Glacier (RGI6)]
+3. d_p_t_cs.txt [cols: Julian day, precipitation(mm), temperature(*C);  ERA5 P & T climatology]
+4. out1.txt [cols: D_s, D_i, T_bias, scale factor for P, rainfall, snowfall, snowmelt, icemelt, mass balance, runoff;   output of the awk code]
+4. out2.txt; cols: D_s, D_i, T_bias, scale factor for P, rainfall, snowfall, snowmelt, icemelt, mass balance, runoff, intercept, slope;   final output code
+
+#### the work-flow
+#1 run awk script from the terminal to produces  out1.txt 
+./sensitivity_cs.2.awk z_a_cs.txt d_p_t_cs.txt
+
+#2 run this command in gnuplot terminal (to get the P-sensitivities via linear fits) 
+se fit quiet;set print "tmp1";do for[i=0:96] { f(x)=a+b*x; fit f(x) "out1.txt" u  4:10 ind  i via a,b; print i,a,b}
+
+#3 to produce the final output use these commands from the terminal
+awk '$4==1' out1.txt>tmp2
+paste -d \  tmp2 tmp1 >out2.txt
+rm tmp1 tmp2
+
+#4 run this command in gnuplot terminal to produce a color-map of the sensitivity (see Fig 2 of the paper)
+se cblab "runoff sensitivity (%)"; se xla "D_{s} (mm d^{-1}  ^{o}C^{-1})" offset char 0,.5; se yla "D_{i} (mm d^{-1}  ^{o}C^{-1})" offset char 1.5,0;se tit "WH" offset char 0,-1;
+se xti 3; se mxti 3; se yti 3; se myti 3; se cbtics 1; se cbra[-5.7:3.9]; se xra[1.5:7.5]; se yra[3.5:15.5]; se si rat -1;
+set palette defined ( 0 "navy", 5.7/9.6 "lemonchiffon", 1 "dark-red" );
+p "<awk '$1<=$2&&3*$1>=$2' out2.txt" u 1:2:(10*$13/($5+$6))  w p pt 5 ps 5 pale ti "",'' u  1:($2/($1<=$2))  w p pt 4 ps 5 lw .5 lc rgb  "black" ti ""
